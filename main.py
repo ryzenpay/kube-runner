@@ -8,16 +8,15 @@ logging.basicConfig(level=int(os.getenv("LEVEL", logging.WARNING)))
 CONFIG_FILE = "config.yaml"
 CACHE_DIR = "./cache"
 
-def run_command(command, cwd=None, input_str=None, silent=False):
+def run_command(command, cwd=None, silent=False):
     """Utility to run shell commands."""
     try:
         result = subprocess.run(
             command, 
             shell=True, 
             capture_output=True, 
-            text=True, 
-            cwd=cwd, 
-            input=input_str
+            text=True,
+            cwd=cwd,
         )
         if result.returncode != 0 and not silent:
             logging.error(f"Exception executing `{command}`")
@@ -33,7 +32,7 @@ def login_to_registry(registry, token):
         return True
     logging.info(f"🔑 Attempting to login to {registry}...")
     cmd = f"werf cr login {registry} -u kube-runner -p {token}"
-    res = run_command(cmd, input_str=token)
+    res = run_command(cmd)
     
     if res and res.returncode == 0:
         logging.info("✅ Login successful")
@@ -49,19 +48,15 @@ def get_remote_sha(repo_link, branch="main"):
         return res.stdout.split()[0]
     return None
 
-def trigger_werf(repo_path, context, registry, repo_name):
-    logging.info(f"🚀 Triggering werf build for {repo_name}...")
-    build_dir = os.path.join(repo_path, context)
-    
-    # werf build and push
-    # We target registry/repo_name
-    cmd = f"werf build --repo {registry}/{repo_name}"
-    res = run_command(cmd, cwd=build_dir)
+def trigger_werf(path, name, registry, context):
+    logging.info(f"🚀 Triggering werf build for {name}...")
+    cmd = f"werf build --repo {registry}/{name} --config <(echo -e 'project: {name}\\n---\\nimage: {name}\\context: {context}')"
+    res = run_command(cmd, cwd=path)
     
     if res and res.returncode == 0:
-        logging.info(f"✅ Successfully built and pushed {repo_name}")
+        logging.info(f"✅ Successfully built and pushed {name}")
     else:
-        logging.warning(f"❌ Werf build failed for {repo_name}")
+        logging.warning(f"❌ Werf build failed for {name}")
 
 def main():
     logging.info("Starting to monitor repositories...")
@@ -103,7 +98,6 @@ def main():
 
                 if name not in last_shas or last_shas[name] != current_sha:
                     logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
-                    
                     local_path = os.path.join(CACHE_DIR, name)
                     
                     if os.path.exists(local_path):
@@ -111,7 +105,7 @@ def main():
                     else:
                         run_command(f"git clone -b {branch} {link} {local_path}")
 
-                    trigger_werf(local_path, context, registry, name)
+                    trigger_werf(local_path, name, registry, context)
                     last_shas[name] = current_sha
                 else:
                     logging.debug(f"Checking {name}: No changes.")
