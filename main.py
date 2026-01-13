@@ -3,7 +3,7 @@ import subprocess
 import time
 import os
 import logging
-logging.basicConfig(level=os.getenv("LEVEL", logging.WARNING))
+logging.basicConfig(level=int(os.getenv("LEVEL", logging.WARNING)))
 
 CONFIG_FILE = "config.yaml"
 CACHE_DIR = "./cache"
