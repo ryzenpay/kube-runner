@@ -50,15 +50,7 @@ def get_remote_sha(repo_link, branch="main"):
 
 def trigger_werf(path, name, registry, context):
     logging.info(f"🚀 Triggering werf build for {name}...")
-    config = f"""
-project: {name}
-configVersion: 1
----
-image: {name}
-dockerfile: Dockerfile
-context: {context}
-"""
-    cmd = f"werf build --repo {registry}/{name} --config <(echo -e '{config}')"
+    cmd = f"werf build --repo {registry}/{name}"
     res = run_command(cmd, cwd=path)
     
     if res and res.returncode == 0:
