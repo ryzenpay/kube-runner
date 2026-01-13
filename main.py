@@ -32,7 +32,7 @@ def login_to_registry(registry, token):
     if not token:
         return True
     logging.info(f"🔑 Attempting to login to {registry}...")
-    cmd = f"docker login {registry} --password-stdin"
+    cmd = f"werf cr login {registry} -p {token}"
     res = run_command(cmd, input_str=token)
     
     if res and res.returncode == 0:
