@@ -52,7 +52,6 @@ def get_remote_sha(repo_link, branch="main"):
             return output.split('\t')[0]
     except Exception as e:
         logging.error(f"⚠️ GitPython Error fetching remote for {repo_link}: {e}")
-    
     return None
 
 def trigger_werf(repo_path, context, registry, repo_name):
