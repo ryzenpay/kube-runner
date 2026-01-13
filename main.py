@@ -3,7 +3,6 @@ import subprocess
 import time
 import os
 import logging
-import git
 logging.basicConfig(level=int(os.getenv("LEVEL", logging.WARNING)))
 
 CONFIG_FILE = "config.yaml"
@@ -44,14 +43,10 @@ def login_to_registry(registry, token):
         return False
 
 def get_remote_sha(repo_link, branch="main"):
-    try:
-        g = git.cmd.Git()
-        target_ref = f"refs/heads/{branch}"
-        output = g.ls_remote(repo_link, target_ref)
-        if output:
-            return output.split('\t')[0]
-    except Exception as e:
-        logging.error(f"⚠️ GitPython Error fetching remote for {repo_link}: {e}")
+    cmd = f"git ls-remote {repo_link} refs/heads/{branch}"
+    res = run_command(cmd)
+    if res and res.returncode == 0 and res.stdout:
+        return res.stdout.split()[0]
     return None
 
 def trigger_werf(repo_path, context, registry, repo_name):
