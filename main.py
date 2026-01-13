@@ -2,6 +2,8 @@ import yaml
 import subprocess
 import time
 import os
+import logging
+logging.basicConfig(level=os.getenv("LEVEL", logging.WARNING))
 
 CONFIG_FILE = "config.yaml"
 CACHE_DIR = "./cache"
@@ -18,27 +20,26 @@ def run_command(command, cwd=None, input_str=None, silent=False):
             input=input_str
         )
         if result.returncode != 0 and not silent:
-            print(f"Error executing: {command}")
-            print(f"Stderr: {result.stderr.strip()}")
+            logging.error(f"Exception executing `{command}`")
+            logging.debug(f"Stderr: {result.stderr.strip()}")
         return result
     except Exception as e:
-        print(f"Exception: {str(e)}")
+        logging.error(f"Exception: {str(e)}")
         return None
 
 def login_to_registry(registry, token):
     """Authenticates to the container registry."""
     if not token:
         return True
-    
-    print(f"🔑 Attempting to login to {registry}...")
+    logging.info(f"🔑 Attempting to login to {registry}...")
     cmd = f"docker login {registry} --password-stdin"
     res = run_command(cmd, input_str=token)
     
     if res and res.returncode == 0:
-        print("✅ Login successful")
+        logging.info("✅ Login successful")
         return True
     else:
-        print("❌ Login failed")
+        logging.warning("❌ Login failed")
         return False
 
 def get_remote_sha(repo_link, branch="main"):
@@ -49,7 +50,7 @@ def get_remote_sha(repo_link, branch="main"):
     return None
 
 def trigger_werf(repo_path, context, registry, repo_name):
-    print(f"🚀 Triggering werf build for {repo_name}...")
+    logging.info(f"🚀 Triggering werf build for {repo_name}...")
     build_dir = os.path.join(repo_path, context)
     
     # werf build and push
@@ -58,11 +59,12 @@ def trigger_werf(repo_path, context, registry, repo_name):
     res = run_command(cmd, cwd=build_dir)
     
     if res and res.returncode == 0:
-        print(f"✅ Successfully built and pushed {repo_name}")
+        logging.info(f"✅ Successfully built and pushed {repo_name}")
     else:
-        print(f"❌ Werf build failed for {repo_name}")
+        logging.warning(f"❌ Werf build failed for {repo_name}")
 
 def main():
+    logging.info("Starting to monitor repositories...")
     if not os.path.exists(CACHE_DIR):
         os.makedirs(CACHE_DIR)
 
@@ -71,7 +73,7 @@ def main():
     while True:
         try:
             if not os.path.exists(CONFIG_FILE):
-                print(f"Config file {CONFIG_FILE} not found.")
+                logging.warning(f"Config file {CONFIG_FILE} not found.")
                 time.sleep(10)
                 continue
 
@@ -96,11 +98,11 @@ def main():
                 current_sha = get_remote_sha(link, branch)
                 
                 if not current_sha:
-                    print(f"⚠️ Could not fetch SHA for {name}. Skipping...")
+                    logging.warning(f"⚠️ Could not fetch SHA for {name}. Skipping...")
                     continue
 
                 if name not in last_shas or last_shas[name] != current_sha:
-                    print(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
+                    logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
                     
                     local_path = os.path.join(CACHE_DIR, name)
                     
@@ -112,10 +114,10 @@ def main():
                     trigger_werf(local_path, context, registry, name)
                     last_shas[name] = current_sha
                 else:
-                    print(f"Checking {name}: No changes.")
+                    logging.debug(f"Checking {name}: No changes.")
 
         except Exception as e:
-            print(f"Critical error: {e}")
+            logging.error(f"Critical error: {e}")
 
         time.sleep(interval)
 
