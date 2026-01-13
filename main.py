@@ -58,7 +58,7 @@ image: {name}
 dockerfile: Dockerfile
 context: {context}
 """
-    cmd = f"werf build --repo {registry}/{name} --config <(echo -e '{config}')"
+    cmd = f"werf build --repo {registry}/{name} --config $(echo -e '{config}')"
     res = run_command(cmd, cwd=path)
     
     if res and res.returncode == 0:
