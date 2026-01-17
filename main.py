@@ -32,7 +32,7 @@ def login_to_registry(registry, token):
     if not token:
         return True
     logging.info(f"🔑 Attempting to login to {registry}...")
-    cmd = f"werf cr login {registry} -u kube-runner -p {token}"
+    cmd = f"werf cr login {registry} -u kube-runner -p {token} --skip-tls-verify-registry"
     res = run_command(cmd)
     
     if res and res.returncode == 0:
@@ -109,7 +109,7 @@ def main():
 
                 if last_shas[name] != current_sha:
                     logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
-                    
+
                     trigger_werf(path, name, registry, context)
                     last_shas[name] = current_sha
 
