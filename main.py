@@ -94,6 +94,9 @@ def main():
                 if name not in last_shas:
                     logging.info(f"initially cloning repo {name}...")
                     git.Repo.clone_from(link, to_path=path, branch=branch)
+                else:
+                    repo = git.Repo(path=path)
+                    repo.remote(name="origin").pull()
 
                 current_sha = get_repo_sha(path)
                 
@@ -106,9 +109,7 @@ def main():
 
                 if last_shas[name] != current_sha:
                     logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
-                    repo = git.Repo(path=path)
-                    repo.remote(name="origin").pull()
-
+                    
                     trigger_werf(path, name, registry, context)
                     last_shas[name] = current_sha
 
