@@ -3,6 +3,7 @@ import subprocess
 import time
 import os
 import logging
+import git
 logging.basicConfig(level=int(os.getenv("LEVEL", logging.WARNING)))
 
 CONFIG_FILE = "config.yaml"
@@ -41,12 +42,9 @@ def login_to_registry(registry, token):
         logging.warning("❌ Login failed")
         return False
 
-def get_remote_sha(repo_link, branch="main"):
-    cmd = f"git ls-remote {repo_link} refs/heads/{branch}"
-    res = run_command(cmd)
-    if res and res.returncode == 0 and res.stdout:
-        return res.stdout.split()[0]
-    return None
+def get_repo_sha(path):
+    repo = git.Repo(path=path, search_parent_directories=True)
+    return repo.head.object.hexsha
 
 def trigger_werf(path, name, registry, context):
     logging.info(f"🚀 Triggering werf build for {name}...")
@@ -64,6 +62,7 @@ def main():
         os.makedirs(CACHE_DIR)
 
     last_shas = {}
+    interval = 60
 
     while True:
         try:
@@ -73,12 +72,12 @@ def main():
                 continue
 
             with open(CONFIG_FILE, 'r') as f:
-                config = yaml.safe_load(f)
+                config: dict = yaml.safe_load(f)
             
             registry = config.get('registry')
             token = os.getenv("registry_token")
             repos = config.get('repos', [])
-            interval = config.get('interval_seconds', 60)
+            interval = int(config.get('interval_seconds', 60))
 
             # Handle Login if token exists
             if token:
@@ -90,25 +89,28 @@ def main():
                 context = repo.get('context', '.')
                 branch = repo.get('branch', 'main')
                 
-                current_sha = get_remote_sha(link, branch)
+                path = os.path.join(CACHE_DIR, name)
+
+                if name not in last_shas:
+                    logging.info(f"initially cloning repo {name}...")
+                    git.Repo.clone_from(link, to_path=path, branch=branch)
+
+                current_sha = get_repo_sha(path)
                 
                 if not current_sha:
                     logging.warning(f"⚠️ Could not fetch SHA for {name}. Skipping...")
                     continue
 
-                if name not in last_shas or last_shas[name] != current_sha:
-                    logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
-                    local_path = os.path.join(CACHE_DIR, name)
-                    
-                    if os.path.exists(local_path):
-                        run_command(f"git fetch && git reset --hard origin/{branch}", cwd=local_path)
-                    else:
-                        run_command(f"git clone -b {branch} {link} {local_path}")
-
-                    trigger_werf(local_path, name, registry, context)
+                if name not in last_shas:
                     last_shas[name] = current_sha
-                else:
-                    logging.debug(f"Checking {name}: No changes.")
+
+                if last_shas[name] != current_sha:
+                    logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
+                    repo = git.Repo(path=path)
+                    repo.remote(name="origin").pull()
+
+                    trigger_werf(path, name, registry, context)
+                    last_shas[name] = current_sha
 
         except Exception as e:
             logging.error(f"Critical error: {e}")
