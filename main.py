@@ -18,13 +18,14 @@ def run_command(command, cwd=None, silent=False):
             capture_output=True, 
             text=True,
             cwd=cwd,
+            env=os.environ.copy()
         )
         if result.returncode != 0 and not silent:
-            logging.error(f"Exception executing `{command}`")
+            logging.error(f"💥 Exception executing `{command}`")
             logging.debug(f"Stderr: {result.stderr.strip()}")
         return result
     except Exception as e:
-        logging.error(f"Exception: {str(e)}")
+        logging.error(f"💥 Exception: {str(e)}")
         return None
 
 def login_to_registry(registry):
@@ -40,11 +41,17 @@ def login_to_registry(registry):
         return False
 
 def get_repo_sha(path):
-    repo = git.Repo(path=path, search_parent_directories=True)
-    return repo.head.object.hexsha
+    try:
+        repo = git.Repo(path=path, search_parent_directories=True)
+        return repo.head.object.hexsha
+    except Exception as e:
+        logging.error(f"⚠️ Error getting SHA for {path}: {e}")
+        return None
 
 def trigger_werf(path, name, registry):
     logging.info(f"🚀 Triggering werf build for {name}...")
+    
+    # Ensure strict mode or cleanup might be needed depending on your werf usage
     cmd = f"werf build --repo {registry}/{name}"
     res = run_command(cmd, cwd=path)
     
@@ -54,7 +61,7 @@ def trigger_werf(path, name, registry):
         logging.warning(f"❌ Werf build failed for {name}")
 
 def main():
-    logging.info("Starting to monitor repositories...")
+    logging.info("👀 Starting to monitor repositories...")
     if not os.path.exists(CACHE_DIR):
         os.makedirs(CACHE_DIR)
 
@@ -64,7 +71,7 @@ def main():
     while True:
         try:
             if not os.path.exists(CONFIG_FILE):
-                logging.warning(f"Config file {CONFIG_FILE} not found.")
+                logging.warning(f"⚠️ Config file {CONFIG_FILE} not found. Waiting...")
                 time.sleep(10)
                 continue
 
@@ -75,8 +82,7 @@ def main():
             repos = config.get('repos', [])
             interval = int(config.get('interval_seconds', 60))
 
-            if os.getenv("WERF_USERNAME"):
-                login_to_registry(registry)
+            login_to_registry(registry)
 
             for repo in repos:
                 name = repo['name']
@@ -85,12 +91,13 @@ def main():
                 
                 path = os.path.join(CACHE_DIR, name)
 
-                if name not in last_shas:
-                    logging.info(f"initially cloning repo {name}...")
+                if not os.path.exists(path):
+                    logging.info(f"📥 Initially cloning repo {name} ({branch})...")
                     git.Repo.clone_from(link, to_path=path, branch=branch)
                 else:
                     repo = git.Repo(path=path)
-                    repo.remote(name="origin").pull()
+                    logging.debug(f"🔄 Pulling {name}...")
+                    repo.remotes.origin.pull()
 
                 current_sha = get_repo_sha(path)
                 
@@ -100,15 +107,16 @@ def main():
 
                 if name not in last_shas:
                     last_shas[name] = current_sha
+                    logging.info(f"📌 Tracking {name} at {current_sha[:7]}")
+                    continue
 
                 if last_shas[name] != current_sha:
                     logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
-
                     trigger_werf(path, name, registry)
                     last_shas[name] = current_sha
 
         except Exception as e:
-            logging.error(f"Critical error: {e}")
+            logging.error(f"Loop error: {e}")
 
         time.sleep(interval)
 
