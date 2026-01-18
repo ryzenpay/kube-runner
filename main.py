@@ -1,5 +1,5 @@
 import yaml
-from subprocess import Popen, PIPE, STDOUT
+import subprocess
 import time
 import os
 import logging
@@ -12,14 +12,18 @@ CACHE_DIR = "./cache"
 def run_command(command, cwd=None, silent=False):
     """Utility to run shell commands."""
     try:
-        process = Popen(command, stdout=PIPE, stderr=STDOUT, env=os.environ.copy(), cwd=cwd)
-        with process.stdout:
-            for line in iter(process.stdout.readline(), b''):
-                logging.debug("     " + line)
-        exitCode = process.wait()
-        if exitCode != 0 and not silent:
+        result = subprocess.run(
+            command, 
+            shell=True, 
+            capture_output=True, 
+            text=True,
+            cwd=cwd,
+            env=os.environ.copy()
+        )
+        if result.returncode != 0 and not silent:
             logging.error(f"💥 Exception executing `{command}`")
-        return exitCode
+            logging.debug(f"Stderr: {result.stderr.strip()}")
+        return result
     except Exception as e:
         logging.error(f"💥 Exception: {str(e)}")
         return None
@@ -29,7 +33,7 @@ def login_to_registry(registry):
     cmd = f"werf cr login --insecure-registry {registry}"
     res = run_command(cmd)
     
-    if res == 0:
+    if res and res.returncode == 0:
         logging.info("✅ Login successful")
         return True
     else:
@@ -51,7 +55,7 @@ def trigger_werf(path, name, registry, platform):
     cmd = f"werf build --repo {registry}/{name} --platform {platform}"
     res = run_command(cmd, cwd=path)
     
-    if res == 0:
+    if res and res.returncode == 0:
         logging.info(f"✅ Successfully built and pushed {name}")
     else:
         logging.warning(f"❌ Werf build failed for {name}")
