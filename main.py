@@ -106,11 +106,9 @@ def main():
                     continue
 
                 if name not in last_shas:
-                    last_shas[name] = current_sha
-                    logging.info(f"📌 Tracking {name} at {current_sha[:7]}")
-                    continue
-
-                if last_shas[name] != current_sha:
+                    logging.info(f"🏃 Starting first build for {name} ({current_sha})")
+                    trigger_werf(path, name, registry)
+                elif last_shas[name] != current_sha:
                     logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
                     trigger_werf(path, name, registry)
                     last_shas[name] = current_sha
