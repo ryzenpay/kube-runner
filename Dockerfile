@@ -7,6 +7,9 @@ COPY --from=werf-source /usr/local/bin/werf /usr/local/bin/werf
 WORKDIR /app
 RUN mkdir -p /app/cache
 
+COPY ca.crt* /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
