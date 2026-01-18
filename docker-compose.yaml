@@ -1,6 +1,7 @@
 services:
   kube-runner:
     build: .
+    privileged: true
     env_file: .env
     environment:
       - WERF_BUILDAH_MODE=auto

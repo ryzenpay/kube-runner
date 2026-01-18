@@ -10,6 +10,10 @@ RUN mkdir -p /app/cache
 COPY ca.crt* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
+RUN apt-get update && apt-get install -y \
+    fuse-overlayfs \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
