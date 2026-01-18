@@ -32,7 +32,7 @@ def login_to_registry(registry, token):
     if not token:
         return True
     logging.info(f"🔑 Attempting to login to {registry}...")
-    cmd = f"werf cr login {registry} -u kube-runner -p {token} --skip-tls-verify-registry"
+    cmd = f"werf cr login -u kube-runner -p {token} --insecure-registry {registry}"
     res = run_command(cmd)
     
     if res and res.returncode == 0:
