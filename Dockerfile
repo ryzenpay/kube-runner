@@ -5,12 +5,11 @@ FROM python:3
 COPY --from=werf-source /usr/local/bin/werf /usr/local/bin/werf
 
 WORKDIR /app
+RUN mkdir -p /app/cache
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
-
-RUN mkdir -p /app/cache
 
 ENTRYPOINT ["python", "main.py"]

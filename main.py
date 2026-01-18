@@ -75,12 +75,12 @@ def main():
             repos = config.get('repos', [])
             interval = int(config.get('interval_seconds', 60))
 
-            login_to_registry(registry)
+            if os.getenv("WERF_USERNAME"):
+                login_to_registry(registry)
 
             for repo in repos:
                 name = repo['name']
                 link = repo['link']
-                context = repo.get('context', '.')
                 branch = repo.get('branch', 'main')
                 
                 path = os.path.join(CACHE_DIR, name)
