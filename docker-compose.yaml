@@ -3,6 +3,6 @@ services:
     build: .
     env_file: .env
     environment:
-      - WELF_BUILDAH=auto
+      - WERF_BUILDAH=auto
     volumes:
       - "./config.yaml:/app/config.yaml"
