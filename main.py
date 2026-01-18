@@ -27,12 +27,9 @@ def run_command(command, cwd=None, silent=False):
         logging.error(f"Exception: {str(e)}")
         return None
 
-def login_to_registry(registry, token):
-    """Authenticates to the container registry."""
-    if not token:
-        return True
+def login_to_registry(registry):
     logging.info(f"🔑 Attempting to login to {registry}...")
-    cmd = f"werf cr login -u kube-runner -p {token} --insecure-registry {registry}"
+    cmd = f"werf cr login --insecure-registry {registry}"
     res = run_command(cmd)
     
     if res and res.returncode == 0:
@@ -46,7 +43,7 @@ def get_repo_sha(path):
     repo = git.Repo(path=path, search_parent_directories=True)
     return repo.head.object.hexsha
 
-def trigger_werf(path, name, registry, context):
+def trigger_werf(path, name, registry):
     logging.info(f"🚀 Triggering werf build for {name}...")
     cmd = f"werf build --repo {registry}/{name}"
     res = run_command(cmd, cwd=path)
@@ -75,13 +72,10 @@ def main():
                 config: dict = yaml.safe_load(f)
             
             registry = config.get('registry')
-            token = os.getenv("registry_token")
             repos = config.get('repos', [])
             interval = int(config.get('interval_seconds', 60))
 
-            # Handle Login if token exists
-            if token:
-                login_to_registry(registry, token)
+            login_to_registry(registry)
 
             for repo in repos:
                 name = repo['name']
@@ -110,7 +104,7 @@ def main():
                 if last_shas[name] != current_sha:
                     logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
 
-                    trigger_werf(path, name, registry, context)
+                    trigger_werf(path, name, registry)
                     last_shas[name] = current_sha
 
         except Exception as e:

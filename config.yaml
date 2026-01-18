@@ -1,4 +1,4 @@
-registry: "harbor.ryzen.me/library"
+registry: harbor.ryzen.me/library
 interval_seconds: 60
 repos:
   - name: kube-runner
