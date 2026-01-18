@@ -48,11 +48,11 @@ def get_repo_sha(path):
         logging.error(f"⚠️ Error getting SHA for {path}: {e}")
         return None
 
-def trigger_werf(path, name, registry):
+def trigger_werf(path, name, registry, platform):
     logging.info(f"🚀 Triggering werf build for {name}...")
     
     # Ensure strict mode or cleanup might be needed depending on your werf usage
-    cmd = f"werf build --repo {registry}/{name}"
+    cmd = f"werf build --repo {registry}/{name} --platform {platform}"
     res = run_command(cmd, cwd=path)
     
     if res and res.returncode == 0:
@@ -79,6 +79,7 @@ def main():
                 config: dict = yaml.safe_load(f)
             
             registry = config.get('registry')
+            platform = config.get('platform')
             repos = config.get('repos', [])
             interval = int(config.get('interval_seconds', 60))
 
@@ -107,10 +108,10 @@ def main():
 
                 if name not in last_shas:
                     logging.info(f"🏃 Starting first build for {name} ({current_sha})")
-                    trigger_werf(path, name, registry)
+                    trigger_werf(path, name, registry, platform)
                 elif last_shas[name] != current_sha:
                     logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
-                    trigger_werf(path, name, registry)
+                    trigger_werf(path, name, registry, platform)
                     last_shas[name] = current_sha
 
         except Exception as e:
