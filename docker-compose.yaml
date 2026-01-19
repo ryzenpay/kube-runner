@@ -1,6 +1,13 @@
 services:
   kube-runner:
     build: .
+    # cap_add:
+    #   - CAP_SYS_ADMIN
+    #   - MKNOD
+    # devices:
+    #   - /dev/fuse
+    # security_opt:
+    #   - label=disable
     privileged: true
     env_file: .env
     environment:
