@@ -28,9 +28,9 @@ def run_command(command, cwd=None, silent=False):
         logging.error(f"💥 Exception: {str(e)}")
         return None
 
-def login_to_registry(registry):
+def login_to_registry(registry, username, password):
     logging.info(f"🔑 Attempting to login to {registry}...")
-    cmd = f"werf cr login --insecure-registry {registry}"
+    cmd = f"podman login --tls-verify=false -u {username} -p {password} {registry}"
     res = run_command(cmd)
     
     if res and res.returncode == 0:
@@ -48,17 +48,16 @@ def get_repo_sha(path):
         logging.error(f"⚠️ Error getting SHA for {path}: {e}")
         return None
 
-def trigger_werf(path, name, registry, platform):
-    logging.info(f"🚀 Triggering werf build for {name}...")
+def trigger_build(path, name, registry):
+    logging.info(f"🚀 Triggering build for {name}...")
     
-    # Ensure strict mode or cleanup might be needed depending on your werf usage
-    cmd = f"werf build --repo {registry}/{name} --platform {platform}"
+    cmd = f"podman build --tag {registry}/{name} ."
     res = run_command(cmd, cwd=path)
     
     if res and res.returncode == 0:
         logging.info(f"✅ Successfully built and pushed {name}")
     else:
-        logging.warning(f"❌ Werf build failed for {name}")
+        logging.warning(f"❌ build failed for {name}")
 
 def main():
     logging.info("👀 Starting to monitor repositories...")
@@ -79,11 +78,10 @@ def main():
                 config: dict = yaml.safe_load(f)
             
             registry = config.get('registry')
-            platform = config.get('platform')
             repos = config.get('repos', [])
             interval = int(config.get('interval_seconds', 60))
 
-            login_to_registry(registry)
+            login_to_registry(registry, os.getenv("REGISTRY_USERNAME"), os.getenv("REGISTRY_PASSWORD"))
 
             for repo in repos:
                 name = repo['name']
@@ -108,10 +106,10 @@ def main():
 
                 if name not in last_shas:
                     logging.info(f"🏃 Starting first build for {name} ({current_sha})")
-                    trigger_werf(path, name, registry, platform)
+                    trigger_build(path, name, registry)
                 elif last_shas[name] != current_sha:
                     logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
-                    trigger_werf(path, name, registry, platform)
+                    trigger_build(path, name, registry)
                     last_shas[name] = current_sha
 
         except Exception as e:

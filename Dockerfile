@@ -1,8 +1,4 @@
-FROM registry.werf.io/werf/werf:2-stable AS werf-source
-
 FROM python:3
-
-COPY --from=werf-source /usr/local/bin/werf /usr/local/bin/werf
 
 WORKDIR /app
 RUN mkdir -p /app/cache
@@ -11,6 +7,7 @@ COPY ca.crt* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
 RUN apt-get update && apt-get install -y \
+    podman \
     fuse-overlayfs \
     && rm -rf /var/lib/apt/lists/*
 

@@ -1,6 +1,5 @@
 registry: harbor.ryzen.me/library
 interval_seconds: 60
-platform: linux/amd64
 repos:
   - name: kube-runner
     link: https://github.com/ryzenpay/kube-runner.git
