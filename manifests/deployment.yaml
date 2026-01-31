@@ -41,3 +41,10 @@ spec:
           value: "--oci-worker-no-process-sandbox"
         - name: LEVEL
           value: "20"
+        volumeMounts:
+        - name: config
+          mountPath: /app
+      volumes:
+      - name: config
+        configMap:
+          name: kube-runner-config
