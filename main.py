@@ -4,118 +4,115 @@ import time
 import os
 import logging
 import git
+import json
+import tempfile
+import sys
+
 logging.basicConfig(level=int(os.getenv("LEVEL", logging.WARNING)))
 
-CONFIG_FILE = "config.yaml"
-CACHE_DIR = "./cache"
+CONFIG_PATH = "config.yaml"
+DOCKER_CONFIG_PATH = os.path.join(os.path.expanduser("~/.docker"), "config.json")
 
-def run_command(command, cwd=None, silent=False):
-    """Utility to run shell commands."""
-    try:
-        result = subprocess.run(
-            command, 
-            shell=True, 
-            capture_output=True, 
-            text=True,
-            cwd=cwd,
-            env=os.environ.copy()
-        )
-        if result.returncode != 0 and not silent:
-            logging.error(f"💥 Exception executing `{command}`")
-            logging.debug(f"Stderr: {result.stderr.strip()}")
-        return result
-    except Exception as e:
-        logging.error(f"💥 Exception: {str(e)}")
-        return None
+def setup_auth(registry_url: str):
+    username = os.environ.get("REGISTRY_USERNAME")
+    password = os.environ.get("REGISTRY_PASSWORD")
 
-def login_to_registry(registry, username, password):
-    logging.info(f"🔑 Attempting to login to {registry}...")
-    cmd = f"podman login --tls-verify=false -u {username} -p {password} {registry}"
-    res = run_command(cmd)
+    if not username or not password:
+        logging.warning("CI_REGISTRY_USER or CI_REGISTRY_PASSWORD not set. Push might fail.")
+        return
+
+    # Ensure .docker directory exists
+    os.makedirs(os.path.expanduser("~/.docker"), exist_ok=True)
+
+    config_data = {
+        "auths": {
+            registry_url: {
+                "username": username,
+                "password": password
+            }
+        }
+    }
+
+    with open(DOCKER_CONFIG_PATH, 'w') as f:
+        json.dump(config_data, f)
     
-    if res and res.returncode == 0:
-        logging.info("✅ Login successful")
-        return True
-    else:
-        logging.warning("❌ Login failed")
-        return False
+    logging.info(f"Configured credentials for {registry_url}")
 
-def get_repo_sha(path):
-    try:
-        repo = git.Repo(path=path, search_parent_directories=True)
-        return repo.head.object.hexsha
-    except Exception as e:
-        logging.error(f"⚠️ Error getting SHA for {path}: {e}")
-        return None
 
-def trigger_build(path, name, registry):
-    logging.info(f"🚀 Triggering build for {name}...")
+def run_build(repo_conf: dict, registry_base):
+    name = repo_conf['name']
+    git_link = repo_conf['link']
+    branch = repo_conf.get('branch', 'main')
     
-    cmd = f"podman build --tag {registry}/{name} ."
-    res = run_command(cmd, cwd=path)
+    image_base = f"{registry_base}/{name}"
     
-    if res and res.returncode == 0:
-        logging.info(f"✅ Successfully built and pushed {name}")
-    else:
-        logging.warning(f"❌ build failed for {name}")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_dir = os.path.join(temp_dir, name)
+        
+        try:
+            # 1. Clone Repository using GitPython
+            logging.info(f"Cloning {name} (branch: {branch})...")
+            repo = git.Repo.clone_from(
+                git_link, 
+                repo_dir, 
+                branch=branch, 
+                depth=1
+            )
+            
+            # 2. Get Commit Hash (short 7-character hash)
+            commit_sha = repo.head.commit.hexsha[:7]
+            
+            logging.info(f"Building {name}:{commit_sha}...")
+
+            cmd = [
+                "buildctl-daemonless.sh", "build",
+                "--frontend", "dockerfile.v0",
+                "--local", f"context={repo_dir}",
+                "--local", f"dockerfile={repo_dir}",
+                "--import-cache", f"type=registry,ref={image_base}:buildcache",
+                "--export-cache", f"type=registry,ref={image_base}:buildcache",
+                "--output", f"type=image,name={image_base}:latest,push=true"
+            ]
+
+            # 4. Execute Build
+            subprocess.run(cmd, check=True)
+            
+            logging.info(f"Successfully built and pushed {name}")
+
+        except git.exc.GitCommandError as e:
+            logging.error(f"Git operation failed for {name}: {e}")
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Build failed for {name}. Exit code: {e.returncode}")
+        except Exception as e:
+            logging.error(f"An unexpected error occurred for {name}: {e}")
 
 def main():
-    logging.info("👀 Starting to monitor repositories...")
-    if not os.path.exists(CACHE_DIR):
-        os.makedirs(CACHE_DIR)
+    if not os.path.exists(CONFIG_PATH):
+        logging.warning(f"Config file not found at {CONFIG_PATH}")
+        sys.exit(1)
 
-    last_shas = {}
-    interval = 60
+    logging.info("Starting BuildKit Runner...")
 
     while True:
         try:
-            if not os.path.exists(CONFIG_FILE):
-                logging.warning(f"⚠️ Config file {CONFIG_FILE} not found. Waiting...")
-                time.sleep(10)
-                continue
+            with open(CONFIG_PATH, 'r') as f:
+                config = yaml.safe_load(f)
 
-            with open(CONFIG_FILE, 'r') as f:
-                config: dict = yaml.safe_load(f)
-            
-            registry = config.get('registry')
+            registry = config.get('registry').replace("http://", "").replace("https://", "")
+            interval = config.get('interval_seconds', 60)
             repos = config.get('repos', [])
-            interval = int(config.get('interval_seconds', 60))
 
-            login_to_registry(registry, os.getenv("REGISTRY_USERNAME"), os.getenv("REGISTRY_PASSWORD"))
+            setup_auth(registry)
 
             for repo in repos:
-                name = repo['name']
-                link = repo['link']
-                branch = repo.get('branch', 'main')
-                
-                path = os.path.join(CACHE_DIR, name)
+                run_build(repo, registry)
 
-                if not os.path.exists(path):
-                    logging.info(f"📥 Initially cloning repo {name} ({branch})...")
-                    git.Repo.clone_from(link, to_path=path, branch=branch)
-                else:
-                    repo = git.Repo(path=path)
-                    logging.debug(f"🔄 Pulling {name}...")
-                    repo.remotes.origin.pull()
-
-                current_sha = get_repo_sha(path)
-                
-                if not current_sha:
-                    logging.warning(f"⚠️ Could not fetch SHA for {name}. Skipping...")
-                    continue
-
-                if name not in last_shas:
-                    logging.info(f"🏃 Starting first build for {name} ({current_sha})")
-                    trigger_build(path, name, registry)
-                elif last_shas[name] != current_sha:
-                    logging.info(f"✨ Change detected in {name} ({last_shas.get(name)} -> {current_sha})")
-                    trigger_build(path, name, registry)
-                    last_shas[name] = current_sha
+            logging.debug(f"Sleeping for {interval} seconds...")
+            time.sleep(interval)
 
         except Exception as e:
-            logging.error(f"Loop error: {e}")
-
-        time.sleep(interval)
+            logging.error(f"{e}")
+            time.sleep(60)
 
 if __name__ == "__main__":
     main()

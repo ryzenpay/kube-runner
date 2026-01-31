@@ -1,6 +1,0 @@
-project: kube-runner
-configVersion: 1
----
-image: kube-runner
-dockerfile: Dockerfile
-context: .

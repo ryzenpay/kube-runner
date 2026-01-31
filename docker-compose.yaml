@@ -1,16 +1,13 @@
 services:
   kube-runner:
     build: .
-    # cap_add:
-    #   - CAP_SYS_ADMIN
-    #   - MKNOD
-    # devices:
-    #   - /dev/fuse
-    # security_opt:
-    #   - label=disable
-    privileged: true
+    security_opt:
+      - apparmor:unconfined
+      - seccomp=unconfined
     env_file: .env
     environment:
-      - WERF_BUILDAH_MODE=auto
+      - REGISTRY=harbor.ryzen.me
+      - REGISTRY_USERNAME=ryzen
+      - BUILDKITD_FLAGS=--oci-worker-no-process-sandbox
     volumes:
       - "./config.yaml:/app/config.yaml"
