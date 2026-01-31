@@ -17,11 +17,9 @@ spec:
     metadata:
       labels:
         app: kube-runner
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/kube-runner: unconfined
     spec:
-      template:
-        metadata:
-          annotations:
-            container.apparmor.security.beta.kubernetes.io/kube-runner: unconfined
       imagePullSecrets:
         - name: harborpullsecret
       containers:
