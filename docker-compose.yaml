@@ -11,4 +11,4 @@ services:
       - BUILDKITD_FLAGS=--oci-worker-no-process-sandbox
       - LEVEL=20 #10 = debug, 20 = info, 30 = warning, 40 = error
     volumes:
-      - "./config.yml:/app/config.yml"
+      - ./config.yaml:/app/config.yaml

@@ -4,7 +4,7 @@ metadata:
   name: kube-runner-config
   namespace: kube-system
 data:
-  config.yml: |
+  config.yaml: |
     registry: harbor.ryzen.me/library
     interval_seconds: 60
     repos:
