@@ -43,7 +43,7 @@ spec:
           value: "20"
         volumeMounts:
         - name: config
-          mountPath: /app
+          mountPath: /app/config.yaml
           subPath: config.yaml
       volumes:
       - name: config
