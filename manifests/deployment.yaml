@@ -17,14 +17,15 @@ spec:
     metadata:
       labels:
         app: kube-runner
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/kube-runner: unconfined
     spec:
       imagePullSecrets:
         - name: harborpullsecret
       containers:
       - name: kube-runner
         image: harbor.ryzen.me/library/kube-runner:latest
+        securityContext:
+          appArmorProfile:
+            type: Unconfined
         env:
         - name: REGISTRY
           value: "harbor.ryzen.me"
