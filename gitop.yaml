@@ -1,0 +1,11 @@
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: kube-runner
+  namespace: fleet-local
+spec:
+  branch: main
+  pollingInterval: 1m0s
+  repo: https://github.com/ryzenpay/kube-runner.git
+  paths:
+    - manifests

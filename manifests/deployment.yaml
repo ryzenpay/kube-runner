@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-runner
+  namespace: kube-system
+  labels:
+    app: kube-runner
+  annotations:
+    keel.sh/policy: minor
+    keel.sh/trigger: poll
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-runner
+  template:
+    metadata:
+      labels:
+        app: kube-runner
+    spec:
+      template:
+        metadata:
+          annotations:
+            container.apparmor.security.beta.kubernetes.io/kube-runner: unconfined
+      imagePullSecrets:
+        - name: harborpullsecret
+      containers:
+      - name: kube-runner
+        image: harbor.ryzen.me/library/kube-runner:latest
+        env:
+        - name: REGISTRY
+          value: "harbor.ryzen.me"
+        - name: REGISTRY_USERNAME
+          value: ryzen
+        - name: REGISTRY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kube-runner-secret
+              key: REGISTRY_PASSWORD 
+        - name: BUILDKITD_FLAGS
+          value: "--oci-worker-no-process-sandbox"
+        - name: LEVEL
+          value: "20"

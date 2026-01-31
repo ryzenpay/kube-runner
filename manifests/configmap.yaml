@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-runner-config
+  namespace: kube-system
+data:
+  config.yml: |
+    registry: harbor.ryzen.me/library
+    interval_seconds: 60
+    repos:
+      - name: kube-runner
+        link: https://github.com/ryzenpay/kube-runner.git
+        branch: main
+      - name: ryzen.me
+        link: https://github.com/ryzenpay/ryzen.me.git
+        branch: main
+      - name: installscripts
+        link: https://github.com/ryzenpay/installscripts.git
+        branch: main
+      - name: cryptotelemetry
+        link: https://github.com/ryzenpay/cryptotelemetry.git
+        branch: main

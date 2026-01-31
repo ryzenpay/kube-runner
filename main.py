@@ -10,7 +10,7 @@ import sys
 
 logging.basicConfig(level=int(os.getenv("LEVEL", logging.WARNING)))
 
-CONFIG_PATH = "config.yaml"
+CONFIG_PATH = "config.yml"
 DOCKER_CONFIG_PATH = os.path.join(os.path.expanduser("~/.docker"), "config.json")
 
 def setup_auth(registry_url: str):
