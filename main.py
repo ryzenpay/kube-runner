@@ -100,7 +100,7 @@ def run_build(repo_conf: dict, registry_base: str, build_state: dict):
                 "--import-cache", f"type=registry,ref={image_base}:buildcache",
                 "--export-cache", f"type=registry,ref={image_base}:buildcache",
                 # Tag with latest AND the specific commit SHA
-                "--output", f"type=image,name={image_base}:latest,{image_base}:{remote_sha},push=true"
+                "--output", f"type=image,name={image_base}:latest,push=true"
             ]
 
             # 3. Execute Build
