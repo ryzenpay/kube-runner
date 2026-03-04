@@ -1,6 +1,6 @@
-registry: harbor.ryzen.me/library
+registry: git.ryzen.me/ryzen
 interval_seconds: 60
 repos:
   - name: kube-runner
-    link: https://github.com/ryzenpay/kube-runner.git
+    repo: https://github.com/ryzenpay/kube-runner.git
     branch: main

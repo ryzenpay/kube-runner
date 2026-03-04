@@ -19,10 +19,10 @@ CONFIG_PATH = "config.yaml"
 DOCKER_CONFIG_PATH = os.path.join(os.path.expanduser("~/.docker"), "config.json")
 
 def setup_auth(registry_url: str):
-    username = os.environ.get("REGISTRY_USERNAME")
-    password = os.environ.get("REGISTRY_PASSWORD")
+    username = os.getenv("REGISTRY_USERNAME")
+    password = os.getenv("REGISTRY_PASSWORD")
 
-    if not username or not password:
+    if not password:
         logging.warning("⚠️  CI_REGISTRY_USER or CI_REGISTRY_PASSWORD not set. Push might fail.")
         return
 
@@ -56,12 +56,12 @@ def get_remote_sha(repo_url: str, branch: str) -> str | None:
 
 def run_build(repo_conf: dict, registry_base: str, build_state: dict):
     name = repo_conf['name']
-    git_link = repo_conf['link']
+    repo = repo_conf['repo']
     branch = repo_conf.get('branch', 'main')
     
     # 1. Check if update is needed
     logging.info(f"🔎 Checking {name} ({branch})...")
-    remote_sha = get_remote_sha(git_link, branch)
+    remote_sha = get_remote_sha(repo, branch)
 
     if not remote_sha:
         logging.warning(f"⚠️  Could not retrieve SHA for {name}, skipping...")
@@ -84,7 +84,7 @@ def run_build(repo_conf: dict, registry_base: str, build_state: dict):
             # 2. Clone Repository
             logging.info(f"📥 Cloning {name}...")
             git.Repo.clone_from(
-                git_link, 
+                repo, 
                 repo_dir, 
                 branch=branch, 
                 depth=1
@@ -104,7 +104,10 @@ def run_build(repo_conf: dict, registry_base: str, build_state: dict):
             ]
 
             # 3. Execute Build
-            subprocess.run(cmd, check=True)
+            if os.getenv("BUILD_LOG", True):
+                subprocess.run(cmd, check=True)
+            else:
+                subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
             
             logging.info(f"✅ Successfully built and pushed {name}:{remote_sha}")
             
